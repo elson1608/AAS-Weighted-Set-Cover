@@ -1,5 +1,6 @@
 import random
 import sys
+import numpy as np
 
 
 # returns a set cover instance (universe, subsets, costs)
@@ -29,7 +30,7 @@ def generate_instance(universe_size, max_elem, n_subsets):
     # costs are normalized s.t. their sum equals 1
     costs = [e / sum(costs) for e in costs]
     
-    return universe_set, subset, costs
+    return universe_set, subsets, np.array(costs)
 
 if __name__ == "__main__":
     
