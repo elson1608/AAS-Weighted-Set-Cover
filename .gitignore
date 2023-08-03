@@ -1,0 +1,4 @@
+.vscode
+algorithms/__pycache__
+generator/__pycache__
+instance/__pycache__
