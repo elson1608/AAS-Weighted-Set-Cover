@@ -5,3 +5,6 @@ generator/__pycache__
 instance/__pycache__
 AAS-Weighted-Set-Cover/venv
 AAS-Notes.md
+__pycache__
+test.ipynb
+test.py
