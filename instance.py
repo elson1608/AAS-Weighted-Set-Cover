@@ -13,14 +13,15 @@ class Instance:
 
         instance_type = file_path.split('/')[2]
 
-        match instance_type:
-            case 'rail':
-                self.cover_matrix, self.cost_vector = load_rail_instance(file_path)
-            case 'scp-clr' | 'scp-cyc':
-                self.cover_matrix, self.cost_vector = load_scp_instance(file_path)
-            case 'sts':
-                self.cover_matrix, self.cost_vector = load_sts_instance(file_path)
-    
+        if instance_type == 'rail':
+            self.cover_matrix, self.cost_vector = load_rail_instance(file_path)
+        elif instance_type == 'scp-clr' or instance_type == 'scp-cyc':
+            self.cover_matrix, self.cost_vector = load_scp_instance(file_path)
+        elif instance_type == 'sts':
+            self.cover_matrix, self.cost_vector = load_sts_instance(file_path)
+        else:
+            raise Exception('Invalid file path')
+
     def set_cover_matrix(self, cover_matrix):
         self.cover_matrix = cover_matrix
 
