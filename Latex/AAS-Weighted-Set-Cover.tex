@@ -1,0 +1,106 @@
+\documentclass{article}
+
+% Language setting
+% Replace `english' with e.g. `spanish' to change the document language
+\usepackage[english]{babel}
+
+% Set page size and margins
+% Replace `letterpaper' with `a4paper' for UK/EU standard size
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{pbox}
+\usepackage{tabularray}
+\usepackage{float}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Automated Algorithm Selection applied to Set Covering}
+\author{Elias Pinter}
+
+\begin{document}
+% \maketitle
+
+% \begin{abstract}
+%       Your abstract.
+% \end{abstract}
+
+% \section{Introduction}
+
+\section{Problem Definition}
+In the Set Cover Problem one is given a universe set $U = \{1,2,\dots, n\}$, a set of Subsets $S = \{s_1,s_2,\dots, s_m \}$ and a set of costs $C = \{c_1, c_2, \dots, c_m\}$ that assign costs
+to each subset $s_k \in S$. We can represent the relationship between $U$ and $S$ in a matrix $A$ which is defined in the following way
+\begin{align*}
+      a_{ij} =
+      \begin{cases}
+            1 & \text{if } i \in s_j \\
+            0 & \text{otherwise}
+      \end{cases}
+\end{align*}
+To describe a solution $X$ we will use a vector $\vec{x}$ with
+\begin{align*}
+      x_{j} =
+      \begin{cases}
+            1 & \text{if } s_j \in X \\
+            0 & \text{otherwise}
+      \end{cases}
+\end{align*}
+The goal is now to find an $X$ which
+\begin{align}
+      \text{minimizes } & \sum_{j}^{m} x_j \cdot c_j                                      \\
+      \text{with }      & \sum_{j}^{m} a_{ij} \cdot x_j \geq 1, \; i \in \{1,2,\dots, n\}
+\end{align}
+\newpage
+\section{Features}
+The table below shows an overview of the selected features\\
+\begin{table}[H]
+      \centering
+      \begin{tblr}{X[0.175\columnwidth,valign=h, halign=l] X[0.275\columnwidth,valign=h,halign=l] X[0.15\columnwidth,valign=h,halign=l] X[0.3\columnwidth,valign=m,halign=l]}
+            \hline
+            Group                         & Features                            & Description                                                                    & Definition \\
+            \hline
+            Subset Size                   & mean\newline
+                                            standard deviation\newline
+                                            median absolute deviation\newline
+                                            mininum\newline
+                                            $0.25$ - quantile\newline
+                                            median\newline
+                                            $0.75$ - quantile\newline
+                                            maximum                             &            & $ \left\{\frac{\sum_{i}^{n} a_{ij}}{|U|} \; \big| \; 1 \leq j \leq m \right\}$ \\
+            \hline
+            Subset Size to Cost ratio     & mean\newline                        
+                                            standard deviation\newline
+                                            median absolute deviation\newline
+                                            mininum\newline
+                                            $0.25$ - quantile\newline
+                                            median\newline
+                                            $0.75$ - quantile\newline
+                                            maximum                             &            & $ \left\{\frac{\sum_{i}^{n} a_{ij} \cdot \sum_{k}^{m} c_k}{|U| \cdot c_j} \; \big| \; 1 \leq j \leq m \right\}$ \\
+            \hline
+            Element Appearances           & mean\newline                        
+                                            standard deviation\newline
+                                            median absolute deviation\newline
+                                            mininum\newline
+                                            $0.25$ - quantile\newline
+                                            median\newline
+                                            $0.75$ - quantile\newline
+                                            maximum                             &            & $\left\{\frac{\sum_{j}^{m}a_{ij}}{|S|} \; \big | \; 1 \leq i \leq n \right\} $ \\
+            \hline
+            Costs                         & variation coefficient\newline
+                                            relative median absolute deviation\newline
+                                            quartile coefficient of dispersion                &            & $ \left\{c_j \; \big | \; 1 \leq j \leq m \right\} $ \\
+            \hline
+            Singular elements             & count                               & Elements that appear in only a single set & $\left\{i \; | \; \sum_{j}^{m} a_{ij} = 1\right\}$ \\
+            \hline
+            Graph                         & number of connected components\newline        
+                                            shortest cycle\newline
+                                            longest cycle\newline               &            & $G=\left(V,E\right)$\newline
+                                                                                               $V=U$\newline
+                                                                                               $E=\left\{(i,j) \; | \; \exists s \in S : i,j \in s\right\}$\newline
+      \end{tblr}                            
+      
+\end{table}
+
+\end{document}

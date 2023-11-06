@@ -1,0 +1,13 @@
+#!/bin/bash
+wl=300
+mem=32768
+
+echo "c [MSE2023] -- begin -- [MSE2023]"
+./run --use-pty --timestamp -d 90 -o output.out -v output.var -w output.wat -C $wl -W $wl -M $mem ./loandra_static $1
+cat output.out
+cat output.var
+rm -f output.out
+rm -f output.var
+rm -f output.wat
+echo "c [MSE2023] -- end -- [MSE2023]"
+

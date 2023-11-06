@@ -1,26 +1,47 @@
 
 import numpy as np
 import networkx as nx
-
+import time
 
 
 class Instance:
 
-    def __init__(self, file_path=None):
-        if file_path is None:
+    def __init__(self, file_name=None):
+        if file_name.startswith('rail'):
+            self.txt_path = 'instances/txt/Rail/' + file_name + '.txt'
+            self.wcnf_path = 'instances/wcnf/Rail/' + file_name + '.wcnf'
+        elif file_name.startswith('sts'):
+            self.txt_path = 'instances/txt/STS/' + file_name + '.txt'
+            self.wcnf_path = 'instances/wcnf/STS/' + file_name + '.wcnf'
+        elif file_name.startswith('scpn'):
+            self.txt_path = 'instances/txt/OR-Large/' + file_name + '.txt'
+            self.wcnf_path = 'instances/wcnf/OR-Large/' + file_name + '.wcnf'
+        elif file_name.startswith('scpclr'):
+            self.txt_path = 'instances/txt/SCP-CLR/' + file_name + '.txt'
+            self.wcnf_path = 'instances/wcnf/SCP-CLR/' + file_name + '.wcnf'
+        elif file_name.startswith('scpcyc'):
+            self.txt_path = 'instances/txt/SCP-CYC/' + file_name + '.txt'
+            self.wcnf_path = 'instances/wcnf/SCP-CYC/' + file_name + '.wcnf'
+        elif file_name.startswith('scp'):
+            self.txt_path = 'instances/txt/OR-Small/' + file_name + '.txt'
+            self.wcnf_path = 'instances/wcnf/OR-Small/' + file_name + '.wcnf'
+
+
+        if self.txt_path is None:
             print('No file path was provided')
             return
 
-        instance_type = file_path.split('/')[2]
+        instance_type = self.txt_path.split('/')[-2]
 
-        if instance_type == 'rail':
-            self.cover_matrix, self.cost_vector = load_rail_instance(file_path)
-        elif instance_type == 'scp-clr' or instance_type == 'scp-cyc':
-            self.cover_matrix, self.cost_vector = load_scp_instance(file_path)
-        elif instance_type == 'sts':
-            self.cover_matrix, self.cost_vector = load_sts_instance(file_path)
+        if instance_type == 'Rail':
+            self.cover_matrix, self.cost_vector = load_rail_instance(self.txt_path)
+        elif instance_type in ['scp-clr', 'scp-cyc', 'OR-Large', 'OR-Small']:
+            self.cover_matrix, self.cost_vector = load_scp_instance(self.txt_path)
+        elif instance_type == 'STS':
+            self.cover_matrix, self.cost_vector = load_sts_instance(self.txt_path)
         else:
             raise Exception('Invalid file path')
+    
 
     def set_cover_matrix(self, cover_matrix):
         self.cover_matrix = cover_matrix
@@ -28,6 +49,7 @@ class Instance:
     def set_cost_vector(self, cost_vector):
         self.cost_vector = cost_vector
 
+        
     def subset_size_features(self):
         subset_sizes = np.sum(self.cover_matrix, axis=0)
 
@@ -86,12 +108,10 @@ class Instance:
         np.max(normed_appearances)
 
     def cost_feature(self):
-        # Costs are normed to be comparable accross multiple instances
-        normed_costs = self.cost_vector / sum(self.cost_vector)
         return \
-        np.std(normed_costs), \
-        np.median(np.absolute(normed_costs - np.median(normed_costs))), \
-        np.quantile(normed_costs, 0.75) - np.quantile(normed_costs, 0.25)
+        np.std(self.cost_vector) / np.mean(self.cost_vector), \
+        np.median(np.absolute(self.cost_vector - np.median(self.cost_vector))) / np.median(self.cost_vector), \
+        (np.quantile(self.cost_vector, 0.75) - np.quantile(self.cost_vector, 0.25)) / np.quantile(self.cost_vector, 0.75)
 
     def forced_set_feature(self):
         element_appearances = np.sum(self.cover_matrix, axis=1)
@@ -99,16 +119,15 @@ class Instance:
         return np.count_nonzero(element_appearances == 1)
 
     def calc_graph(self):
-        adjacency_matrix = np.zeros((self.cover_matrix.shape[0], self.cover_matrix.shape[0]))
-        for col_idx in range(self.cover_matrix.shape[1]):
-            column = self.cover_matrix[:, col_idx]
-            elems = np.where(column == 1)[0]
-            for e1 in elems:
-                for e2 in elems:
-                    if e1 != e2:
-                        adjacency_matrix[e1, e2] = 1
-                        adjacency_matrix[e2, e1] = 1
+        num_elems = self.cover_matrix.shape[0]
+        adjacency_matrix = np.zeros((num_elems, num_elems), dtype=np.uint8)
+        for i in range(num_elems):
+            for col in self.cover_matrix.T:
+                if col[i] == 1:
+                    adjacency_matrix[i, :] |= col
+                    adjacency_matrix[:, i] |= col
 
+        np.fill_diagonal(adjacency_matrix, 0)
         return adjacency_matrix
     
     def graph_features(self):
@@ -138,8 +157,8 @@ def load_rail_instance(file_path):
             # First line contains dimensions
             if col_idx == -1:
                 shape = tuple(int(x) for x in line)
-                cover_matrix = np.zeros(shape, dtype=np.int64)
-                cost_vector = np.zeros(shape[1], dtype=np.int64)
+                cover_matrix = np.zeros(shape, dtype=np.uint8)
+                cost_vector = np.zeros(shape[1], dtype=np.uint8)
                 continue
             # First entry in row is cost of subset
             cost_vector[col_idx] = int(line[0])
@@ -156,12 +175,13 @@ def load_sts_instance(file_path):
     with open(file_path, 'r') as file:
         for col_idx, line in enumerate(file, start=-1):
             line = line.lstrip().rstrip('\n').rstrip(' ').split(' ')
+            line = [c for c in line if c != '']
 
             # First line contains dimensions
             if col_idx == -1:
-                shape = tuple(int(x) for x in line)
-                cover_matrix = np.zeros(shape, dtype=np.int64)
-                cost_vector = np.zeros(shape[1], dtype=np.int64)
+                shape = tuple(int(x) for x in line if x != '')
+                cover_matrix = np.zeros(shape, dtype=np.uint8)
+                cost_vector = np.zeros(shape[1], dtype=np.uint8)
                 continue
 
             # STS instances are unicost
@@ -188,8 +208,8 @@ def load_scp_instance(file_path):
 
                 # Because number of subsets is first in this format we need to reverse 
                 shape = tuple(int(x) for x in line)
-                cover_matrix = np.zeros(shape, dtype=np.int64)
-                cost_vector = np.zeros(shape[1], dtype=np.int64)
+                cover_matrix = np.zeros(shape, dtype=np.uint8)
+                cost_vector = np.zeros(shape[1], dtype=np.uint8)
                 continue
 
             if all(element == '1' for element in line) or len(''.join(line)) == 0:
@@ -201,7 +221,6 @@ def load_scp_instance(file_path):
                 cost_vector[col_idx] = int(line[0])
                 continue
 
-            # Also skip second entry since it just states how many elements are covered by the subset
             for i in range(len(line)):
                 element = int(line[i])
 
@@ -209,3 +228,29 @@ def load_scp_instance(file_path):
                 cover_matrix[element-1, col_idx] = 1
     return cover_matrix, cost_vector
 
+
+
+def assign_new_costs(file_name, cv):
+    if file_name.startswith('rail'):
+        orig_txt_path = 'instances/txt/Rail/' + file_name + '.txt'
+        orig_wcnf_path = 'instances/wcnf/Rail/' + file_name + '.wcnf'
+    elif file_name.startswith('sts'):
+        orig_txt_path = 'instances/txt/STS/' + file_name + '.txt'
+        orig_wcnf_path = 'instances/wcnf/STS/' + file_name + '.wcnf'
+    elif file_name.startswith('scpn'):
+        orig_txt_path = 'instances/txt/OR-Large/' + file_name + '.txt'
+        orig_wcnf_path = 'instances/wcnf/OR-Large/' + file_name + '.wcnf'
+    elif file_name.startswith('scpclr'):
+        orig_txt_path = 'instances/txt/SCP-CLR/' + file_name + '.txt'
+        orig_wcnf_path = 'instances/wcnf/SCP-CLR/' + file_name + '.wcnf'
+    elif file_name.startswith('scpcyc'):
+        orig_txt_path = 'instances/txt/SCP-CYC/' + file_name + '.txt'
+        orig_wcnf_path = 'instances/wcnf/SCP-CYC/' + file_name + '.wcnf'
+    elif file_name.startswith('scp'):
+        orig_txt_path = 'instances/txt/OR-Small/' + file_name + '.txt'
+        orig_wcnf_path = 'instances/wcnf/OR-Small/' + file_name + '.wcnf'
+    
+    with open(orig_txt_path, 'r') as file:
+        content = file.read()
+
+    print('txt')
