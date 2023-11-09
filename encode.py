@@ -18,7 +18,7 @@ def encode_rail_instance(file_path, dest_path):
                 hard_clauses[int(e) - 1].append(set_nr)
 
             # add soft clauses for costs            
-            wcnf.append([-1 * set_nr], weight=int(line[0]))
+            wcnf.append([-1 * set_nr], weight=float(line[0]))
         
         # add hard clauses to make sure each element is covered
         wcnf.extend(hard_clauses)
@@ -33,26 +33,36 @@ def encode_rail_instance(file_path, dest_path):
 
 def encode_scp_instance(file_path, dest_path):
     with open(file_path, 'r') as txt_file:
+        
         # for scp dimensions are switched
         first_line = txt_file.readline().lstrip().rstrip('\n').rstrip(' ').split(' ')
-        first_line.reverse()
         shape = tuple(int(x) for x in first_line)
         wcnf = WCNF()
         hard_clauses = [[] for _ in range(shape[0])]
-        set_nr = 0
+        elem = 0
+        cost_nr = 0
+        start = False
         for _, line in enumerate(txt_file, start=1):
+            
+            if line.isspace():
+                continue
+
             line = line.lstrip().rstrip('\n').rstrip(' ').split(' ')
-            if all(element == '1' for element in line) or len(''.join(line)) == 0:
-                continue
             
+            if start and sets > 0:
+                for set_nr in line:
+                    hard_clauses[elem-1].append(int(set_nr))
+                sets -= len(line)
             # costs are specified right before subset elements
-            if len(line) == 1:        
-                set_nr += 1
-                wcnf.append([-1 * set_nr], weight=int(line[0]))
-                continue
-            
-            for e in line:
-                hard_clauses[int(e) - 1].append(set_nr)
+            elif len(line) == 1:
+                elem += 1
+                sets = int(line[0])
+                start = True        
+            else:
+                for e in line:
+                    cost_nr += 1
+                    wcnf.append([-1 * cost_nr], weight=float(e))
+
 
         # add hard clauses to make sure each element is covered
         wcnf.extend(hard_clauses)
@@ -75,11 +85,15 @@ def encode_sts_instance(file_path, dest_path):
         for set_nr, line in enumerate(txt_file, start=1):
             line = line.lstrip().rstrip('\n').rstrip(' ').split(' ')
             line = [c for c in line if c != '']
-            for e in line:
-                hard_clauses[int(e) - 1].append(set_nr)
+            for i in range(3):
+                hard_clauses[int(line[i]) - 1].append(set_nr)
 
-            # add soft clauses for costs            
-            wcnf.append([-1 * set_nr], weight=1)
+            # add soft clauses for costs
+            if len(line) == 3:            
+                wcnf.append([-1 * set_nr], weight=1)
+            else:
+                wcnf.append([-1 * set_nr], weight=float(line[3]))
+
 
         # add hard clauses to make sure each element is covered
         wcnf.extend(hard_clauses)

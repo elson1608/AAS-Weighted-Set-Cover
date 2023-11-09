@@ -2,6 +2,8 @@
 import numpy as np
 import networkx as nx
 import time
+from sample import sample
+from encode import *
 
 
 class Instance:
@@ -35,7 +37,7 @@ class Instance:
 
         if instance_type == 'Rail':
             self.cover_matrix, self.cost_vector = load_rail_instance(self.txt_path)
-        elif instance_type in ['scp-clr', 'scp-cyc', 'OR-Large', 'OR-Small']:
+        elif instance_type in ['SCP-CLR', 'SCP-CYC', 'OR-Large', 'OR-Small']:
             self.cover_matrix, self.cost_vector = load_scp_instance(self.txt_path)
         elif instance_type == 'STS':
             self.cover_matrix, self.cost_vector = load_sts_instance(self.txt_path)
@@ -184,11 +186,13 @@ def load_sts_instance(file_path):
                 cost_vector = np.zeros(shape[1], dtype=np.uint8)
                 continue
 
-            # STS instances are unicost
-            cost_vector[col_idx] = 1
+            # STS instances are unicost per default
+            if len(line) == 3:
+                cost_vector[col_idx] = 1
+            else:
+                cost_vector[col_idx] = line[3] 
 
-            # Also skip second entry since it just states how many elements are covered by the subset
-            for i in range(len(line)):
+            for i in range(3):
                 element = int(line[i])
 
                 # elements begin at 1 therfore we subtract 1 for obtaining its index
@@ -197,35 +201,35 @@ def load_sts_instance(file_path):
 
 
 def load_scp_instance(file_path):
-    col_idx = -1
+    row = 0
+    start = False
     with open(file_path, 'r') as file:
         for idx, line in enumerate(file, start=-1):
+            if line.isspace():
+                continue
+
             line = line.lstrip().rstrip('\n').rstrip(' ').split(' ')
 
             # First line contains dimensions
             if idx == -1:
-                line.reverse()
-
                 # Because number of subsets is first in this format we need to reverse 
                 shape = tuple(int(x) for x in line)
-                cover_matrix = np.zeros(shape, dtype=np.uint8)
-                cost_vector = np.zeros(shape[1], dtype=np.uint8)
-                continue
+                cover_matrix = np.zeros(shape, dtype=np.float16)
+                cost_vector = []
+            elif start and sets > 0:
+                for col in line:
+                    cover_matrix[row-1, int(col)-1] = 1
+                sets -= len(line)
+            elif len(line) == 1:
+                row += 1
+                sets = int(line[0])
+                start = True
+            else:
+                cost_vector += list(map(float, line))
+        cost_vector = np.array(cost_vector, dtype=np.float16)
+            
 
-            if all(element == '1' for element in line) or len(''.join(line)) == 0:
-                continue
 
-            if len(line) == 1:
-                # costs are specified right before subset elements
-                col_idx += 1
-                cost_vector[col_idx] = int(line[0])
-                continue
-
-            for i in range(len(line)):
-                element = int(line[i])
-
-                # elements begin at 1 therfore we subtract 1 for obtaining its index
-                cover_matrix[element-1, col_idx] = 1
     return cover_matrix, cost_vector
 
 
@@ -233,24 +237,116 @@ def load_scp_instance(file_path):
 def assign_new_costs(file_name, cv):
     if file_name.startswith('rail'):
         orig_txt_path = 'instances/txt/Rail/' + file_name + '.txt'
-        orig_wcnf_path = 'instances/wcnf/Rail/' + file_name + '.wcnf'
+        new_wcnf_path = 'instances/wcnf/Rail/' + file_name + "_" + str(cv).replace('.', '') + '.wcnf'
+        new_txt_path = 'instances/txt/Rail/' + file_name + "_" + str(cv).replace('.', '') + '.txt'
+        assign_new_costs_rail(orig_txt_path, new_txt_path, new_wcnf_path, cv)
     elif file_name.startswith('sts'):
         orig_txt_path = 'instances/txt/STS/' + file_name + '.txt'
-        orig_wcnf_path = 'instances/wcnf/STS/' + file_name + '.wcnf'
+        new_wcnf_path = 'instances/wcnf/STS/' + file_name + "_" + str(cv).replace('.', '') + '.wcnf'
+        new_txt_path = 'instances/txt/STS/' + file_name + "_" + str(cv).replace('.', '') + '.txt'
+        assign_new_costs_sts(orig_txt_path, new_txt_path, new_wcnf_path, cv)
     elif file_name.startswith('scpn'):
         orig_txt_path = 'instances/txt/OR-Large/' + file_name + '.txt'
-        orig_wcnf_path = 'instances/wcnf/OR-Large/' + file_name + '.wcnf'
+        new_wcnf_path = 'instances/wcnf/OR-Large/' + file_name + "_" + str(cv).replace('.', '') + '.wcnf'
+        new_txt_path = 'instances/txt/OR-Large/' + file_name + "_" + str(cv).replace('.', '') + '.txt'
+        assign_new_costs_scp(orig_txt_path, new_txt_path, new_wcnf_path, cv)
     elif file_name.startswith('scpclr'):
         orig_txt_path = 'instances/txt/SCP-CLR/' + file_name + '.txt'
-        orig_wcnf_path = 'instances/wcnf/SCP-CLR/' + file_name + '.wcnf'
+        new_wcnf_path = 'instances/wcnf/SCP-CLR/' + file_name + "_" + str(cv).replace('.', '') + '.wcnf'
+        new_txt_path = 'instances/txt/SCP-CLR/' + file_name + "_" + str(cv).replace('.', '') + '.txt'
+        assign_new_costs_scp(orig_txt_path, new_txt_path, new_wcnf_path, cv)
     elif file_name.startswith('scpcyc'):
         orig_txt_path = 'instances/txt/SCP-CYC/' + file_name + '.txt'
-        orig_wcnf_path = 'instances/wcnf/SCP-CYC/' + file_name + '.wcnf'
+        new_wcnf_path = 'instances/wcnf/SCP-CYC/' + file_name + "_" + str(cv).replace('.', '') + '.wcnf'
+        new_txt_path = 'instances/txt/SCP-CYC/' + file_name + "_" + str(cv).replace('.', '') + '.txt'
+        assign_new_costs_scp(orig_txt_path, new_txt_path, new_wcnf_path, cv)
     elif file_name.startswith('scp'):
         orig_txt_path = 'instances/txt/OR-Small/' + file_name + '.txt'
-        orig_wcnf_path = 'instances/wcnf/OR-Small/' + file_name + '.wcnf'
-    
-    with open(orig_txt_path, 'r') as file:
-        content = file.read()
+        new_wcnf_path = 'instances/wcnf/OR-Small/' + file_name + "_" + str(cv).replace('.', '') + '.wcnf'
+        new_txt_path = 'instances/txt/OR-Small/' + file_name + "_" + str(cv).replace('.', '') + '.txt'
+        assign_new_costs_scp(orig_txt_path, new_txt_path, new_wcnf_path, cv)
 
-    print('txt')
+
+
+def assign_new_costs_rail(orig_txt_path, new_txt_path, new_wcnf_path, cv):
+    with open(orig_txt_path, 'r') as file:
+        with open(new_txt_path, 'w') as new_file:
+            for col_idx, line in enumerate(file, start=-1):
+                line = line.lstrip().rstrip('\n').rstrip(' ').split(' ')
+
+                # First line contains dimensions
+                if col_idx == -1:
+                    new_file.write(' ' + ' '.join(line) + ' \n')
+                    shape = tuple(int(x) for x in line)
+                    cost_vector = sample(cv, shape[1])
+                    continue
+                # First entry in row is cost of subset
+                line[0] = str(cost_vector[col_idx])
+                new_str = ' ' + ' '.join(line) + ' \n'
+                new_file.write(new_str)
+    encode_rail_instance(new_txt_path, new_wcnf_path)
+
+
+def assign_new_costs_sts(orig_txt_path, new_txt_path, new_wcnf_path, cv):
+    with open(orig_txt_path, 'r') as file:
+        with open(new_txt_path, 'w') as new_file:
+            for col_idx, line in enumerate(file, start=-1):
+                if line.isspace():
+                    continue
+
+
+                line = line.lstrip().rstrip('\n').rstrip(' ').split(' ')
+                line = [c for c in line if c != '']
+
+                if col_idx == -1:
+                    new_file.write(' ' + ' '.join(line) + ' \n')
+
+                    shape = tuple(int(x) for x in line if x != '')
+                    shape = tuple(int(x) for x in line)
+                    cost_vector = sample(cv, shape[1])
+                    continue
+
+                if len(line) == 3:
+                    line.append(str(cost_vector[col_idx]))
+                else:
+                    line[3] = str(cost_vector[col_idx])
+                
+                new_str = ' ' + ' '.join(line) + ' \n'
+                new_file.write(new_str)
+    encode_sts_instance(new_txt_path, new_wcnf_path)
+
+def assign_new_costs_scp(orig_txt_path, new_txt_path, new_wcnf_path, cv):
+    with open(orig_txt_path, 'r') as file:
+        with open(new_txt_path, 'w') as new_file:
+            start = False
+            for idx, line in enumerate(file, start=-1):
+
+                if line.isspace():
+                    continue
+                
+                line = line.lstrip().rstrip('\n').rstrip(' ').split(' ')
+
+                # First line contains dimensions
+                if idx == -1:
+                    new_file.write(' ' + ' '.join(line) + ' \n')
+
+                    # Because number of subsets is first in this format we need to reverse 
+                    shape = tuple(int(x) for x in line)
+                    cost_vector = iter(sample(cv, shape[1]))
+                elif start:
+                    new_file.write(' ' + ' '.join(line) + ' \n')
+                elif len(line) == 1:
+                    start = True
+                    # costs are specified right before subset elements
+                    new_file.write(' ' + ' '.join(line) + ' \n')
+                else:
+                    new_file.write(' ')
+                    for _ in line:
+                        new_file.write(str(next(cost_vector)) + ' ')
+                    new_file.write('\n')
+    encode_scp_instance(new_txt_path, new_wcnf_path) 
+                
+
+                
+
+
