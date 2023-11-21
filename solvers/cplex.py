@@ -1,6 +1,8 @@
-from solver import Solver
+from solvers.solver import Solver
 import cplex
+from cplex.exceptions import CplexSolverError
 import time
+import numpy as np
 
 class CplexSolver(Solver):
 
@@ -16,6 +18,10 @@ class CplexSolver(Solver):
         cover_matrix = instance.cover_matrix.astype(float)
         cost_vector = instance.cost_vector.astype(float)
         model = cplex.Cplex()
+        model.set_log_stream(None)
+        model.set_error_stream(None)
+        model.set_warning_stream(None)
+        model.set_results_stream(None)
 
 
         model.variables.add(
@@ -51,8 +57,11 @@ class CplexSolver(Solver):
 
         model.solve()
 
-
-        elapsed_time = "{:.2f}".format(elapsed_time)
-        solution_cost = model.solution.get_objective_value() 
+        elapsed_time = "{:.2f}".format(CplexSolver.elapsed_time)
+        try:
+            solution_cost = int(model.solution.get_objective_value())
+        except CplexSolverError as e:
+            if e.args[2] == 1217:
+                solution_cost = np.nan
 
         return elapsed_time, solution_cost

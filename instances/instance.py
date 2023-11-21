@@ -114,7 +114,7 @@ class Instance:
         np.quantile(normed_appearances, 0.75), \
         np.max(normed_appearances)
 
-    def cost_feature(self):
+    def cost_features(self):
         return \
         np.std(self.cost_vector) / np.mean(self.cost_vector), \
         np.median(np.absolute(self.cost_vector - np.median(self.cost_vector))) / np.median(self.cost_vector), \

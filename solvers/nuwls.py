@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from solvers.solver import Solver
 import os
-import subprocess
+import numpy as np
 
 class NuWLSSolver(Solver):
     
@@ -19,9 +19,19 @@ class NuWLSSolver(Solver):
         os.system(f"{run} --timestamp -d 15 -o {out_path} -v {var_path} -w {wat_path} -C {time_limit} -W {time_limit} -M {32768} {executable} {instance.wcnf_path}")
 
         # get results from out file
-        res = subprocess.run(f"grep 'o' {out_path} | tail -n 1", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True)
-        elapsed_time = float(res.stdout.split('/')[0])
-        solution_cost = float(res.stdout.split(' ')[1])
+        last_line = ''
+        with open(out_path, 'r') as file:
+            lines = file.readlines()  # reads all lines into a list
+            for line in lines:
+                if 'UNKNOWN' in line:
+                    elapsed_time = float(last_line.split('/')[0])
+                    solution_cost = np.nan
+                    break
+                if 'NuWLS search done!' in line or 'SATISFIABLE' in line:
+                    elapsed_time = float(last_line.split('/')[0])
+                    solution_cost = int(last_line.split(' ')[-1])
+                    break
+                last_line = line 
 
         # clean up 
         os.system(f"rm -f {out_path}")
