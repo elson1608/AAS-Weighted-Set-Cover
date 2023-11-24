@@ -1,10 +1,8 @@
 
 import numpy as np
-import networkx as nx
 import os
 from pysat.formula import WCNF
 from sample import sample
-from numba import jit
 
 
 
@@ -76,13 +74,13 @@ class Instance:
         np.max(normed_subset_sizes)
 
     def subset_size_cost_ratio_features(self):
-        subset_sizes = np.sum(self.cover_matrix, axis=0)
+        subset_sizes = np.sum(self.cover_matrix, axis=0, dtype=np.uint8)
 
         # Get the number of columns
         num_elements = self.cover_matrix.shape[0]
 
         subset_size_ratios = subset_sizes / num_elements
-        relative_set_cost = (self.cost_vector / np.mean(self.cost_vector)) * np.mean(subset_size_ratios) 
+        relative_set_cost = (self.cost_vector * np.mean(subset_size_ratios)) / np.mean(self.cost_vector) 
         subset_size_cost_ratio = subset_size_ratios / relative_set_cost 
 
         return \
@@ -137,22 +135,22 @@ class Instance:
         np.fill_diagonal(adjacency_matrix, 0)
         return adjacency_matrix
     
-    def graph_features(self):
-        adjacency_matrix = self.calc_graph()
-        graph = nx.from_numpy_array(adjacency_matrix)
+    # def graph_features(self):
+    #     adjacency_matrix = self.calc_graph()
+    #     graph = nx.from_numpy_array(adjacency_matrix)
 
-        nx.draw(graph, with_labels=True, node_color='lightblue', node_size=50, font_size=12, font_weight='bold', width=2)
+    #     nx.draw(graph, with_labels=True, node_color='lightblue', node_size=50, font_size=12, font_weight='bold', width=2)
 
 
-        connected_components = list(nx.connected_components(graph))
-        cycles = list(nx.simple_cycles(graph))
-        shortest_cycle = min(cycles, key=len)
-        longest_cycle = max(cycles, key=len)
+    #     connected_components = list(nx.connected_components(graph))
+    #     cycles = list(nx.simple_cycles(graph))
+    #     shortest_cycle = min(cycles, key=len)
+    #     longest_cycle = max(cycles, key=len)
         
-        return \
-        len(connected_components), \
-        len(shortest_cycle), \
-        len(longest_cycle)
+    #     return \
+    #     len(connected_components), \
+    #     len(shortest_cycle), \
+    #     len(longest_cycle)
 
     def load(self):
         row = 0
@@ -169,7 +167,8 @@ class Instance:
                     # Because number of subsets is first in this format we need to reverse 
                     shape = tuple(int(x) for x in line)
                     self.cover_matrix = np.zeros(shape, dtype=np.uint8)
-                    self.cost_vector = []
+                    self.cost_vector = np.zeros(shape[1], dtype=np.uint8)
+                    offset = 0
                 elif start and sets > 0:
                     for col in line:
                         self.cover_matrix[row-1, int(col)-1] = 1
@@ -179,8 +178,9 @@ class Instance:
                     sets = int(line[0])
                     start = True
                 else:
-                    self.cost_vector += list(map(float, line))
-            self.cost_vector = np.array(self.cost_vector, dtype=np.uint8)
+                    new_costs = list(map(lambda x: np.minimum(x, 255), list(map(int, line))))
+                    self.cost_vector[offset:offset + len(new_costs)] = new_costs
+                    offset += len(new_costs)
 
 
     def encode_as_wcnf(self, txt_path=None, wcnf_path=None):
