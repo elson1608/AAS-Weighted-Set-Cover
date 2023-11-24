@@ -15,8 +15,8 @@ class CplexSolver(Solver):
     
     
     def solve(self, instance, time_limit):
-        cover_matrix = instance.cover_matrix.astype(float)
-        cost_vector = instance.cost_vector.astype(float)
+        cover_matrix = instance.cover_matrix
+        cost_vector = instance.cost_vector
         model = cplex.Cplex()
         model.set_log_stream(None)
         model.set_error_stream(None)
@@ -24,27 +24,31 @@ class CplexSolver(Solver):
         model.set_results_stream(None)
 
 
-        model.variables.add(
-            obj=cost_vector,
-            types="B" * cover_matrix.shape[1]
-        )
-
-        # Constraint that ensures that every element of the universe set is covered
-        # left hand side, sum over j x_j * a_ij for all i
-        constraints = [[range(cover_matrix.shape[1]), list(cover_matrix[i, :])] for i in range(cover_matrix.shape[0])]
-
-        # >=
-        constraint_senses = "G" * cover_matrix.shape[0]
-
-        # right hand side, 1 
-        rhs = [1] * cover_matrix.shape[0]
+        for c in cost_vector:
+            model.variables.add(
+                obj=[float(c)],
+                types="B" 
+            )
 
 
-        model.linear_constraints.add(
-            lin_expr=constraints,
-            senses=constraint_senses,
-            rhs=rhs
-        )
+
+        for row in cover_matrix:
+            # Constraint that ensures that every element of the universe set is covered
+            # left hand side, sum over j x_j * a_ij for all i
+            constraint = [[range(cover_matrix.shape[1]), row.tolist()]]
+            
+            # >=
+            constraint_sense = "G"
+            
+            # right hand side, 1
+            rhs = [1]
+
+            model.linear_constraints.add(
+                lin_expr=constraint,
+                senses=constraint_sense,
+                rhs=rhs
+            )
+
 
         model.objective.set_name("cost")
         model.objective.set_sense(model.objective.sense.minimize)
